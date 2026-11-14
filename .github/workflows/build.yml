@@ -65,6 +65,7 @@ jobs:
 
   ksud:
     name: Build KernelSU 3.3.1 ksud
+    needs: lkm
     runs-on: ubuntu-latest
     steps:
       - name: Checkout build repo
@@ -80,6 +81,18 @@ jobs:
               git apply "$p"
             done
           fi
+
+      - name: Download LKM artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: kernelsu-331-lkm
+          path: lkm
+
+      - name: Embed KDP LKM into ksud
+        run: |
+          mkdir -p KernelSU/userspace/ksud/bin/aarch64
+          cp lkm/kernelsu.ko KernelSU/userspace/ksud/bin/aarch64/android14-6.1_kernelsu.ko
+          ls -l KernelSU/userspace/ksud/bin/aarch64/
 
       - name: Setup Rust
         run: |
