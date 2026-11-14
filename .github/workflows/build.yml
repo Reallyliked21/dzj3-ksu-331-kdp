@@ -1,0 +1,85 @@
+name: build-ksu-331-kdp
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  lkm:
+    name: Build KernelSU 3.3.1 LKM
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/ylarod/ddk-min:android14-6.1-20260828
+      options: --privileged
+    steps:
+      - name: Checkout build repo
+        uses: actions/checkout@v4
+
+      - name: Fetch KernelSU v3.3.1
+        run: |
+          git clone --depth 1 --branch v3.3.1 https://github.com/tiann/KernelSU.git KernelSU
+          if ls patches/*.patch >/dev/null 2>&1; then
+            cd KernelSU
+            for p in ../patches/*.patch; do
+              echo "applying $p"
+              git apply "$p"
+            done
+          else
+            echo "no patches yet - building stock KernelSU"
+          fi
+
+      - name: Build kernelsu.ko
+        run: |
+          cd KernelSU/kernel
+          CONFIG_KSU=m CC=clang make -j"$(nproc)"
+          ls -l kernelsu.ko
+
+      - name: Upload LKM
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernelsu-331-lkm
+          path: KernelSU/kernel/kernelsu.ko
+
+  ksud:
+    name: Build KernelSU 3.3.1 ksud
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout build repo
+        uses: actions/checkout@v4
+
+      - name: Fetch KernelSU v3.3.1
+        run: |
+          git clone --depth 1 --branch v3.3.1 https://github.com/tiann/KernelSU.git KernelSU
+          if ls patches/*.patch >/dev/null 2>&1; then
+            cd KernelSU
+            for p in ../patches/*.patch; do
+              echo "applying $p"
+              git apply "$p"
+            done
+          fi
+
+      - name: Setup Rust
+        run: |
+          rustup update stable
+          rustup target add aarch64-linux-android
+
+      - name: Setup NDK r29
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r29
+
+      - name: Build ksud
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          cd KernelSU
+          source .github/scripts/setup-rust-build.sh aarch64-linux-android 26
+          cargo build --target "$TRIPLE" --release --manifest-path ./userspace/ksud/Cargo.toml
+
+      - name: Upload ksud
+        uses: actions/upload-artifact@v4
+        with:
+          name: ksud-331-aarch64
+          path: KernelSU/target/aarch64-linux-android/release/ksud
