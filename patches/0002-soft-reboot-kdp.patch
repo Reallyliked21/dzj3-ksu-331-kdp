@@ -1,6 +1,6 @@
 --- a/userspace/ksud/src/soft_reboot.rs
 +++ b/userspace/ksud/src/soft_reboot.rs
-@@ -149,73 +149,16 @@
+@@ -149,73 +149,25 @@
  }
  
  pub fn soft_reboot() -> Result<()> {
@@ -8,9 +8,15 @@
 -    if let Err(e) = ksucalls::ensure_uapi_version_matched() {
 -        error!("{e:#}, skip soft_reboot");
 -        return Ok(());
-+    // KDP late-load: emulating the full boot stage makes init/waitsys trigger a real reboot.
-+    // Only restart zygote; the KernelSU LKM and root session stay alive.
-+    info!("KDP late-load soft reboot: restart zygote");
++    // Late-load KDP: do not run init's stop/start (it can trigger a real reboot).
++    // Re-run the module stages directly so newly installed/updated modules take effect,
++    // then restart zygote to reload framework/hooks.
++    info!("module-effective soft reboot: run post-fs-data");
++    on_post_fs_data()?;
++    info!("module-effective soft reboot: run service");
++    on_services();
++
++    info!("module-effective soft reboot: restart zygote");
 +    let status = Command::new("setprop")
 +        .args(["ctl.restart", "zygote"])
 +        .status()
@@ -18,7 +24,7 @@
 +    if !status.success() {
 +        warn!("setprop ctl.restart zygote exited with status: {status}");
      }
--
+ 
 -    utils::daemonize_with(true, || -> Result<()> {
 -        switch_mnt_ns(1)?;
 -        chdir("/")?;
@@ -78,7 +84,8 @@
 -    if let Err(e) = wait_for_boot_completed() {
 -        warn!("wait for boot completed failed: {e}");
 -    }
--    on_boot_completed();
++    info!("module-effective soft reboot: run boot-completed");
+     on_boot_completed();
 -
      unsafe {
          _exit(0);
