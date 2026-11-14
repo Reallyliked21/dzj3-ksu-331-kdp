@@ -18,7 +18,7 @@ jobs:
 
       - name: Fetch KernelSU v3.3.1
         run: |
-          git clone --depth 1 --branch v3.3.1 https://github.com/tiann/KernelSU.git KernelSU
+          git clone --branch v3.3.1 https://github.com/tiann/KernelSU.git KernelSU
           if ls patches/*.patch >/dev/null 2>&1; then
             cd KernelSU
             for p in ../patches/*.patch; do
@@ -32,7 +32,7 @@ jobs:
       - name: Build kernelsu.ko
         run: |
           cd KernelSU/kernel
-          CONFIG_KSU=m CC=clang make -j"$(nproc)"
+          CONFIG_KSU=m CONFIG_KSU_SAMSUNG_KDP=y CONFIG_KSU_SAMSUNG_RKP=y CONFIG_KSU_SAMSUNG_DEFEX=y CONFIG_KSU_SAMSUNG_NO_PATCH_TEXT=y CC=clang make -j"$(nproc)"
           ls -l kernelsu.ko
 
       - name: Upload LKM
@@ -50,7 +50,7 @@ jobs:
 
       - name: Fetch KernelSU v3.3.1
         run: |
-          git clone --depth 1 --branch v3.3.1 https://github.com/tiann/KernelSU.git KernelSU
+          git clone --branch v3.3.1 https://github.com/tiann/KernelSU.git KernelSU
           if ls patches/*.patch >/dev/null 2>&1; then
             cd KernelSU
             for p in ../patches/*.patch; do
